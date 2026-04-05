@@ -28,34 +28,25 @@
             <h3>Add Staff to <span id="targetBusinessName" style="color:#007bff;"></span></h3>
             <form id="addUserForm">
                 <input type="hidden" id="targetMid">
-                
                 <label>First Name</label>
-                <input type="text" id="newFirstName" required placeholder="e.g. John">
-                
+                <input type="text" id="newFirstName" required>
                 <label>Last Name</label>
-                <input type="text" id="newLastName" required placeholder="e.g. Doe">
-                
+                <input type="text" id="newLastName" required>
                 <label>Email Address</label>
-                <input type="email" id="newEmail" required placeholder="e.g. staff@example.com">
-                
+                <input type="email" id="newEmail" required>
                 <label>Assign Role</label>
-                <select id="roleDropdown" required>
-                    <option value="">Loading allowed roles...</option>
-                </select>
-                
+                <select id="roleDropdown" required></select>
                 <div style="display:flex; justify-content: flex-end; gap: 10px;">
-                    <button type="button" onclick="closeModal()" style="background:none; border:1px solid #ccc; padding:8px 12px; border-radius:4px; cursor:pointer;">Cancel</button>
-                    <button type="submit" style="background:#28a745; color:white; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;">Confirm Add</button>
+                    <button type="button" onclick="closeModal()">Cancel</button>
+                    <button type="submit" style="background:#28a745; color:white;">Confirm Add</button>
                 </div>
             </form>
         </div>
     </div>
 
     <div id="sidebar">
-        <h3>Prototype Menu</h3>
+        <h3>Menu</h3>
         <p style="font-weight: bold;">My Businesses</p>
-        <p>User Settings</p>
-        <p>Support</p>
         <hr>
         <div class="user-info">
             Logged in as: <br><span id="display-name" style="color:black; font-weight:bold;">...</span><br>
@@ -65,18 +56,15 @@
 
     <div id="main-content">
         <h1>My Businesses</h1>
-        <p>Select a business to manage products and users.</p>
-        <div id="business-list">Loading your MIDs...</div>
+        <div id="business-list">Loading...</div>
     </div>
 
     <script>
-        // --- CREDENTIALS ---
         const SUPABASE_URL = 'https://tsgpgauyimwlechpedpk.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzZ3BnYXV5aW13bGVjaHBlZHBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzODE1NjIsImV4cCI6MjA5MDk1NzU2Mn0.jFhmn2gxhDr9MuHg_TyCJPnnsyNbdDN56HAZn3Ydbyg'; // <--- REPLACE WITH YOUR KEY
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         window.onload = async function() {
-            // Normalize email from storage for consistency
             const storedEmail = localStorage.getItem('currentUserEmail');
             const userEmail = storedEmail ? storedEmail.toLowerCase().trim() : null;
             const userName = localStorage.getItem('currentUserName');
@@ -88,7 +76,7 @@
 
             document.getElementById('display-name').textContent = userName;
 
-            // 1. Fetch Permissions (Only select columns that exist in this table)
+            // 1. Fetch permissions for the logged-in user
             const { data: permissions, error } = await sb
                 .from('user_permissions')
                 .select('mid_number, role_name, product_name')
@@ -97,22 +85,29 @@
             const listDiv = document.getElementById('business-list');
 
             if (error) {
-                listDiv.innerHTML = "Error loading permissions: " + error.message;
+                listDiv.innerHTML = "Error: " + error.message;
             } else if (!permissions || permissions.length === 0) {
-                listDiv.innerHTML = "You don't have any businesses assigned.";
+                // Logic for why Tina might be seeing nothing:
+                listDiv.innerHTML = `No businesses assigned to <strong>${userEmail}</strong>. <br>Please verify this email exists in your user_permissions table.`;
             } else {
                 listDiv.innerHTML = ""; 
                 
-                // 2. Loop through and find Business Names from the logic table
                 for (const p of permissions) {
+                    // Fetch Business Name from mid_role_logic (Source of Truth)
                     const { data: bizData } = await sb
                         .from('mid_role_logic')
                         .select('business_name')
                         .eq('mid_number', p.mid_number)
                         .limit(1)
-                        .single();
+                        .maybeSingle();
 
                     const bName = bizData ? bizData.business_name : ("MID: " + p.mid_number);
+
+                    // 2. CHECK ROLE PERMISSION: Only Principal or Business Manager see the button
+                    const canAddUser = (p.role_name === 'Principal' || p.role_name === 'Business Manager');
+                    const actionButton = canAddUser 
+                        ? `<button class="btn-add" onclick="openAddUserModal('${p.mid_number}', '${bName}')">+ Add Staff</button>`
+                        : `<span style="font-size:0.8em; color:gray;">View Only</span>`;
 
                     const card = document.createElement('div');
                     card.className = 'card';
@@ -122,32 +117,28 @@
                             <small>MID: ${p.mid_number}</small><br>
                             <span class="badge">${p.role_name}</span>
                         </div>
-                        <button class="btn-add" onclick="openAddUserModal('${p.mid_number}', '${bName}')">+ Add Staff</button>
+                        ${actionButton}
                     `;
                     listDiv.appendChild(card);
                 }
             }
         };
 
-        // --- ADD USER MODAL LOGIC ---
-
+        // Modal and Add User logic remains the same
         async function openAddUserModal(mid, businessName) {
             document.getElementById('targetMid').value = mid;
             document.getElementById('targetBusinessName').innerText = businessName;
             
-            // Fetch roles allowed for this specific business MID (Requirement #11)
-            const { data: roles, error } = await sb
+            const { data: roles } = await sb
                 .from('mid_role_logic')
                 .select('role_name')
                 .eq('mid_number', mid)
                 .neq('role_name', 'Principal'); 
 
             const dropdown = document.getElementById('roleDropdown');
-            if (roles && roles.length > 0) {
-                dropdown.innerHTML = roles.map(r => `<option value="${r.role_name}">${r.role_name}</option>`).join('');
-            } else {
-                dropdown.innerHTML = '<option value="">No staff roles defined</option>';
-            }
+            dropdown.innerHTML = roles && roles.length > 0 
+                ? roles.map(r => `<option value="${r.role_name}">${r.role_name}</option>`).join('')
+                : '<option value="">No roles available</option>';
             
             document.getElementById('addUserModal').style.display = 'block';
         }
@@ -157,51 +148,22 @@
             document.getElementById('addUserForm').reset();
         }
 
-        // --- SUBMIT FORM LOGIC ---
-
         document.getElementById('addUserForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
             const mid = document.getElementById('targetMid').value;
+            const bizName = document.getElementById('targetBusinessName').innerText;
             const firstName = document.getElementById('newFirstName').value;
             const lastName = document.getElementById('newLastName').value;
             const role = document.getElementById('roleDropdown').value;
-
-            // Case-Insensitive Email Normalization (Fixing the bug)
             const email = document.getElementById('newEmail').value.toLowerCase().trim();
 
-            // STEP A: Upsert Profile (Prevents duplicates regardless of case)
-            const { error: profileError } = await sb.from('profiles').upsert({ 
-                email: email, 
-                first_name: firstName, 
-                last_name: lastName 
-            }, { onConflict: 'email' });
+            await sb.from('profiles').upsert({ email, first_name: firstName, last_name: lastName }, { onConflict: 'email' });
+            const { error } = await sb.from('user_permissions').insert([{ user_email: email, mid_number: mid, role_name: role, product_name: 'SMB' }]);
 
-            if (profileError) {
-                alert('Profile Error: ' + profileError.message);
-                return;
-            }
-
-            // STEP B: Insert Permission
-            const { error: permError } = await sb.from('user_permissions').insert([{
-                user_email: email,
-                mid_number: mid,
-                role_name: role,
-                product_name: 'SMB' 
-            }]);
-
-            if (!permError) {
-                alert('User added successfully!');
-                closeModal();
-            } else {
-                alert('Permission Error: ' + permError.message);
-            }
+            if (!error) { alert('User added!'); closeModal(); } else { alert(error.message); }
         });
 
-        function logout() {
-            localStorage.clear();
-            window.location.href = 'index.html';
-        }
+        function logout() { localStorage.clear(); window.location.href = 'index.html'; }
     </script>
 </body>
 </html>

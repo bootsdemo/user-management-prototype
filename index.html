@@ -1,49 +1,34 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Management Prototype - Connection Test</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-</head>
-<body>
-    <h1>Prototype Connection Status</h1>
-    <div id="status">Connecting to Supabase...</div>
-    <ul id="user-list"></ul>
+<script>
+    // 1. Define your credentials
+    const SUPABASE_URL = 'https://tsgpgauyimwlechpedpk.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzZ3BnYXV5aW13bGVjaHBlZHBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzODE1NjIsImV4cCI6MjA5MDk1NzU2Mn0.jFhmn2gxhDr9MuHg_TyCJPnnsyNbdDN56HAZn3Ydbyg';
 
-    <script>
-        // 1. Replace these with your actual Supabase credentials
-        const SUPABASE_URL = 'https://tsgpgauyimwlechpedpk.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzZ3BnYXV5aW13bGVjaHBlZHBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzODE1NjIsImV4cCI6MjA5MDk1NzU2Mn0.jFhmn2gxhDr9MuHg_TyCJPnnsyNbdDN56HAZn3Ydbyg';
-// Change this line:
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // 2. Create the Client (We name it 'sb' to be 100% safe from naming conflicts)
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        async function testConnection() {
-            const statusDiv = document.getElementById('status');
-            const userList = document.getElementById('user-list');
+    async function testConnection() {
+        const statusDiv = document.getElementById('status');
+        const userList = document.getElementById('user-list');
 
-            // 2. Try to fetch the Principals we uploaded earlier
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('first_name, last_name');
+        // 3. CRITICAL: Use 'sb.from' (not 'supabase.from')
+        const { data, error } = await sb
+            .from('profiles')
+            .select('first_name, last_name');
 
-            if (error) {
-                statusDiv.innerHTML = "❌ Connection Error: " + error.message;
-                statusDiv.style.color = "red";
-            } else {
-                statusDiv.innerHTML = "✅ Successfully connected to Supabase!";
-                statusDiv.style.color = "green";
-                
-                // Display the names to prove data is flowing
-                data.forEach(user => {
-                    const li = document.createElement('li');
-                    li.textContent = `${user.first_name} ${user.last_name}`;
-                    userList.appendChild(li);
-                });
-            }
+        if (error) {
+            statusDiv.innerHTML = "❌ Connection Error: " + error.message;
+            statusDiv.style.color = "red";
+        } else {
+            statusDiv.innerHTML = "✅ Successfully connected to Supabase!";
+            statusDiv.style.color = "green";
+            
+            data.forEach(user => {
+                const li = document.createElement('li');
+                li.textContent = user.first_name + " " + user.last_name;
+                userList.appendChild(li);
+            });
         }
+    }
 
-        testConnection();
-    </script>
-</body>
-</html>
+    testConnection();
+</script>

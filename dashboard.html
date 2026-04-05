@@ -76,7 +76,9 @@
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         window.onload = async function() {
-            const userEmail = localStorage.getItem('currentUserEmail');
+            // Normalize email from storage for consistency
+            const storedEmail = localStorage.getItem('currentUserEmail');
+            const userEmail = storedEmail ? storedEmail.toLowerCase().trim() : null;
             const userName = localStorage.getItem('currentUserName');
 
             if (!userEmail) {
@@ -86,34 +88,44 @@
 
             document.getElementById('display-name').textContent = userName;
 
-            // Fetch Permissions
+            // 1. Fetch Permissions (Only select columns that exist in this table)
             const { data: permissions, error } = await sb
                 .from('user_permissions')
-                .select('mid_number, role_name, product_name, business_name')
+                .select('mid_number, role_name, product_name')
                 .eq('user_email', userEmail);
 
             const listDiv = document.getElementById('business-list');
 
             if (error) {
-                listDiv.innerHTML = "Error loading data: " + error.message;
-            } else if (permissions.length === 0) {
+                listDiv.innerHTML = "Error loading permissions: " + error.message;
+            } else if (!permissions || permissions.length === 0) {
                 listDiv.innerHTML = "You don't have any businesses assigned.";
             } else {
                 listDiv.innerHTML = ""; 
-                permissions.forEach(p => {
+                
+                // 2. Loop through and find Business Names from the logic table
+                for (const p of permissions) {
+                    const { data: bizData } = await sb
+                        .from('mid_role_logic')
+                        .select('business_name')
+                        .eq('mid_number', p.mid_number)
+                        .limit(1)
+                        .single();
+
+                    const bName = bizData ? bizData.business_name : ("MID: " + p.mid_number);
+
                     const card = document.createElement('div');
                     card.className = 'card';
-                    // Pass MID and Business Name to the modal opener
                     card.innerHTML = `
                         <div>
-                            <strong>${p.business_name || 'Business'}</strong><br>
+                            <strong>${bName}</strong><br>
                             <small>MID: ${p.mid_number}</small><br>
                             <span class="badge">${p.role_name}</span>
                         </div>
-                        <button class="btn-add" onclick="openAddUserModal('${p.mid_number}', '${p.business_name || 'this business'}')">+ Add Staff</button>
+                        <button class="btn-add" onclick="openAddUserModal('${p.mid_number}', '${bName}')">+ Add Staff</button>
                     `;
                     listDiv.appendChild(card);
-                });
+                }
             }
         };
 
@@ -123,18 +135,18 @@
             document.getElementById('targetMid').value = mid;
             document.getElementById('targetBusinessName').innerText = businessName;
             
-            // 1. Fetch valid roles from mid_role_logic (Pulls from MID Logic)
+            // Fetch roles allowed for this specific business MID (Requirement #11)
             const { data: roles, error } = await sb
                 .from('mid_role_logic')
                 .select('role_name')
                 .eq('mid_number', mid)
-                .neq('role_name', 'Principal'); // Do not display Principal
+                .neq('role_name', 'Principal'); 
 
             const dropdown = document.getElementById('roleDropdown');
             if (roles && roles.length > 0) {
                 dropdown.innerHTML = roles.map(r => `<option value="${r.role_name}">${r.role_name}</option>`).join('');
             } else {
-                dropdown.innerHTML = '<option value="">No roles found for this MID</option>';
+                dropdown.innerHTML = '<option value="">No staff roles defined</option>';
             }
             
             document.getElementById('addUserModal').style.display = 'block';
@@ -151,15 +163,14 @@
             e.preventDefault();
             
             const mid = document.getElementById('targetMid').value;
-            const bizName = document.getElementById('targetBusinessName').innerText;
             const firstName = document.getElementById('newFirstName').value;
             const lastName = document.getElementById('newLastName').value;
             const role = document.getElementById('roleDropdown').value;
 
-            // 2. FIX: Email duplicate check is now Case Insensitive
+            // Case-Insensitive Email Normalization (Fixing the bug)
             const email = document.getElementById('newEmail').value.toLowerCase().trim();
 
-            // STEP A: Create/Update Profile (Dual-Write)
+            // STEP A: Upsert Profile (Prevents duplicates regardless of case)
             const { error: profileError } = await sb.from('profiles').upsert({ 
                 email: email, 
                 first_name: firstName, 
@@ -167,24 +178,23 @@
             }, { onConflict: 'email' });
 
             if (profileError) {
-                alert('Error updating profile: ' + profileError.message);
+                alert('Profile Error: ' + profileError.message);
                 return;
             }
 
-            // STEP B: Insert Permission using pulled MID logic
+            // STEP B: Insert Permission
             const { error: permError } = await sb.from('user_permissions').insert([{
                 user_email: email,
                 mid_number: mid,
-                business_name: bizName,
                 role_name: role,
                 product_name: 'SMB' 
             }]);
 
             if (!permError) {
-                alert('Success: User invited as ' + role);
+                alert('User added successfully!');
                 closeModal();
             } else {
-                alert('Error assigning permission: ' + permError.message);
+                alert('Permission Error: ' + permError.message);
             }
         });
 

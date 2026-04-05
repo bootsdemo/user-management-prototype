@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; margin: 0; display: flex; }
+        #sidebar { width: 250px; background: #f4f4f4; height: 100vh; padding: 20px; border-right: 1px solid #ddd; }
+        #main-content { flex-grow: 1; padding: 40px; }
+        .user-info { font-size: 0.9em; color: #666; margin-bottom: 30px; }
+        .card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .badge { background: #e0e0e0; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; }
+        .btn-logout { color: red; cursor: pointer; text-decoration: underline; font-size: 0.8em; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h3>Prototype Menu</h3>
+        <p style="font-weight: bold;">My Businesses</p>
+        <p>User Settings</p>
+        <p>Support</p>
+        <hr>
+        <div class="user-info">
+            Logged in as: <br><span id="display-name" style="color:black; font-weight:bold;">...</span><br>
+            <span class="btn-logout" onclick="logout()">Logout / Switch User</span>
+        </div>
+    </div>
+
+    <div id="main-content">
+        <h1>My Businesses</h1>
+        <p>Select a business to manage products and users.</p>
+        <div id="business-list">Loading your MIDs...</div>
+    </div>
+
+    <script>
+        // --- CREDENTIALS ---
+        const SUPABASE_URL = 'https://tsgpgauyimwlechpedpk.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzZ3BnYXV5aW13bGVjaHBlZHBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzODE1NjIsImV4cCI6MjA5MDk1NzU2Mn0.jFhmn2gxhDr9MuHg_TyCJPnnsyNbdDN56HAZn3Ydbyg';
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        window.onload = async function() {
+            // 1. Get the current user from LocalStorage
+            const userEmail = localStorage.getItem('currentUserEmail');
+            const userName = localStorage.getItem('currentUserName');
+
+            if (!userEmail) {
+                window.location.href = 'index.html'; // Kick back to login if no session
+                return;
+            }
+
+            document.getElementById('display-name').textContent = userName;
+
+            // 2. FETCH VISIBLE MIDs for this user
+            // We join user_permissions with mids to get the DBA names
+            const { data: permissions, error } = await sb
+                .from('user_permissions')
+                .select(`
+                    mid_number,
+                    role_name,
+                    product_name
+                `)
+                .eq('user_email', userEmail);
+
+            const listDiv = document.getElementById('business-list');
+
+            if (error) {
+                listDiv.innerHTML = "Error loading data: " + error.message;
+            } else if (permissions.length === 0) {
+                listDiv.innerHTML = "You don't have any businesses assigned to your email yet.";
+            } else {
+                listDiv.innerHTML = ""; // Clear loader
+                
+                // 3. Display the MIDs as cards
+                permissions.forEach(p => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.innerHTML = `
+                        <div>
+                            <strong>MID: ${p.mid_number}</strong><br>
+                            <small>Product: ${p.product_name}</small>
+                        </div>
+                        <span class="badge">${p.role_name}</span>
+                    `;
+                    listDiv.appendChild(card);
+                });
+            }
+        };
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

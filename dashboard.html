@@ -10,10 +10,12 @@
         #sidebar { width: 250px; background: #f4f4f4; height: 100vh; padding: 20px; border-right: 1px solid #ddd; }
         #main-content { flex-grow: 1; padding: 40px; }
         .user-info { font-size: 0.9em; color: #666; margin-bottom: 30px; }
-        .card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
-        .badge { background: #e0e0e0; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; margin-left: 10px; }
+        .card { border: 1px solid #ddd; padding: 20px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; background: white; }
+        .business-info { flex: 1; }
+        .product-tag { background: #f0f7ff; color: #0056b3; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: bold; text-transform: uppercase; border: 1px solid #cce5ff; margin-top: 5px; display: inline-block; }
+        .badge { background: #eee; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; margin-top: 5px; display: inline-block; }
         .btn-logout { color: red; cursor: pointer; text-decoration: underline; font-size: 0.8em; }
-        .btn-add { background: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
+        .btn-add { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
         
         /* Modal Styles */
         #addUserModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; }
@@ -38,14 +40,14 @@
                 <select id="roleDropdown" required></select>
                 <div style="display:flex; justify-content: flex-end; gap: 10px;">
                     <button type="button" onclick="closeModal()">Cancel</button>
-                    <button type="submit" style="background:#28a745; color:white;">Confirm Add</button>
+                    <button type="submit" style="background:#28a745; color:white; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;">Confirm Add</button>
                 </div>
             </form>
         </div>
     </div>
 
     <div id="sidebar">
-        <h3>Menu</h3>
+        <h3>Prototype Menu</h3>
         <p style="font-weight: bold;">My Businesses</p>
         <hr>
         <div class="user-info">
@@ -56,12 +58,12 @@
 
     <div id="main-content">
         <h1>My Businesses</h1>
-        <div id="business-list">Loading...</div>
+        <div id="business-list">Loading your businesses and products...</div>
     </div>
 
     <script>
         const SUPABASE_URL = 'https://tsgpgauyimwlechpedpk.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzZ3BnYXV5aW13bGVjaHBlZHBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzODE1NjIsImV4cCI6MjA5MDk1NzU2Mn0.jFhmn2gxhDr9MuHg_TyCJPnnsyNbdDN56HAZn3Ydbyg'; // <--- REPLACE WITH YOUR KEY
+        const SUPABASE_ANON_KEY = 'xxxxx'; // <--- REPLACE WITH YOUR KEY
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         window.onload = async function() {
@@ -76,7 +78,7 @@
 
             document.getElementById('display-name').textContent = userName;
 
-            // 1. Fetch permissions for the logged-in user
+            // 1. Fetch permissions AND product_name
             const { data: permissions, error } = await sb
                 .from('user_permissions')
                 .select('mid_number, role_name, product_name')
@@ -87,13 +89,12 @@
             if (error) {
                 listDiv.innerHTML = "Error: " + error.message;
             } else if (!permissions || permissions.length === 0) {
-                // Logic for why Tina might be seeing nothing:
-                listDiv.innerHTML = `No businesses assigned to <strong>${userEmail}</strong>. <br>Please verify this email exists in your user_permissions table.`;
+                listDiv.innerHTML = `No businesses found for <strong>${userEmail}</strong>.`;
             } else {
                 listDiv.innerHTML = ""; 
                 
                 for (const p of permissions) {
-                    // Fetch Business Name from mid_role_logic (Source of Truth)
+                    // Fetch Business Name from Logic Table
                     const { data: bizData } = await sb
                         .from('mid_role_logic')
                         .select('business_name')
@@ -103,28 +104,28 @@
 
                     const bName = bizData ? bizData.business_name : ("MID: " + p.mid_number);
 
-                    // 2. CHECK ROLE PERMISSION: Only Principal or Business Manager see the button
+                    // Check Role Permission
                     const canAddUser = (p.role_name === 'Principal' || p.role_name === 'Business Manager');
-                    const actionButton = canAddUser 
-                        ? `<button class="btn-add" onclick="openAddUserModal('${p.mid_number}', '${bName}')">+ Add Staff</button>`
-                        : `<span style="font-size:0.8em; color:gray;">View Only</span>`;
-
+                    
                     const card = document.createElement('div');
                     card.className = 'card';
                     card.innerHTML = `
-                        <div>
+                        <div class="business-info">
                             <strong>${bName}</strong><br>
-                            <small>MID: ${p.mid_number}</small><br>
-                            <span class="badge">${p.role_name}</span>
+                            <div class="product-tag">${p.product_name || 'Generic Product'}</div><br>
+                            <small style="color:#888;">MID: ${p.mid_number}</small><br>
+                            <span class="badge">Your Role: ${p.role_name}</span>
                         </div>
-                        ${actionButton}
+                        ${canAddUser 
+                            ? `<button class="btn-add" onclick="openAddUserModal('${p.mid_number}', '${bName}')">+ Add Staff</button>` 
+                            : `<span style="color:gray; font-size:0.8em;">View Only</span>`}
                     `;
                     listDiv.appendChild(card);
                 }
             }
         };
 
-        // Modal and Add User logic remains the same
+        // Modal Logic
         async function openAddUserModal(mid, businessName) {
             document.getElementById('targetMid').value = mid;
             document.getElementById('targetBusinessName').innerText = businessName;
@@ -151,19 +152,33 @@
         document.getElementById('addUserForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const mid = document.getElementById('targetMid').value;
-            const bizName = document.getElementById('targetBusinessName').innerText;
             const firstName = document.getElementById('newFirstName').value;
             const lastName = document.getElementById('newLastName').value;
             const role = document.getElementById('roleDropdown').value;
             const email = document.getElementById('newEmail').value.toLowerCase().trim();
 
             await sb.from('profiles').upsert({ email, first_name: firstName, last_name: lastName }, { onConflict: 'email' });
-            const { error } = await sb.from('user_permissions').insert([{ user_email: email, mid_number: mid, role_name: role, product_name: 'SMB' }]);
+            
+            // We use 'SMB' as a default product for new invites in this prototype
+            const { error } = await sb.from('user_permissions').insert([{ 
+                user_email: email, 
+                mid_number: mid, 
+                role_name: role, 
+                product_name: 'SMB' 
+            }]);
 
-            if (!error) { alert('User added!'); closeModal(); } else { alert(error.message); }
+            if (!error) { 
+                alert('Success! User added.'); 
+                closeModal(); 
+            } else { 
+                alert('Error: ' + error.message); 
+            }
         });
 
-        function logout() { localStorage.clear(); window.location.href = 'index.html'; }
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'index.html';
+        }
     </script>
 </body>
 </html>

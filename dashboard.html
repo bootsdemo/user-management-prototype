@@ -6,21 +6,30 @@
     <title>User Management - Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; margin: 0; display: flex; }
+        body { font-family: sans-serif; margin: 0; display: flex; background-color: #f8f9fa; }
         #sidebar { width: 250px; background: #f4f4f4; height: 100vh; padding: 20px; border-right: 1px solid #ddd; }
         #main-content { flex-grow: 1; padding: 40px; }
         .user-info { font-size: 0.9em; color: #666; margin-bottom: 30px; }
-        .card { border: 1px solid #ddd; padding: 20px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; background: white; }
-        .business-info { flex: 1; }
-        .product-tag { background: #f0f7ff; color: #0056b3; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: bold; text-transform: uppercase; border: 1px solid #cce5ff; margin-top: 5px; display: inline-block; }
-        .badge { background: #eee; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; margin-top: 5px; display: inline-block; }
-        .btn-logout { color: red; cursor: pointer; text-decoration: underline; font-size: 0.8em; }
-        .btn-add { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
         
+        /* Card Styling */
+        .card { border: 1px solid #ddd; padding: 20px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .business-info { flex: 1; }
+        .details-container { margin-top: 10px; }
+        .product-row { margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; gap: 10px; }
+        
+        /* Tags & Badges */
+        .product-tag { background: #e7f3ff; color: #007bff; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; font-weight: bold; border: 1px solid #b3d7ff; }
+        .badge { background: #f1f1f1; color: #333; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; border: 1px solid #ccc; }
+        
+        /* Buttons */
+        .btn-logout { color: red; cursor: pointer; text-decoration: underline; font-size: 0.8em; }
+        .btn-add { background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-add:hover { background: #218838; }
+
         /* Modal Styles */
         #addUserModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; }
         .modal-content { background:white; width:400px; margin:100px auto; padding:20px; border-radius:8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .modal-content input, .modal-content select { width: 100%; padding: 8px; margin: 8px 0 15px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        .modal-content input, .modal-content select { width: 100%; padding: 10px; margin: 8px 0 15px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
     </style>
 </head>
 <body>
@@ -30,16 +39,23 @@
             <h3>Add Staff to <span id="targetBusinessName" style="color:#007bff;"></span></h3>
             <form id="addUserForm">
                 <input type="hidden" id="targetMid">
+                
                 <label>First Name</label>
-                <input type="text" id="newFirstName" required>
+                <input type="text" id="newFirstName" required placeholder="John">
+                
                 <label>Last Name</label>
-                <input type="text" id="newLastName" required>
+                <input type="text" id="newLastName" required placeholder="Doe">
+                
                 <label>Email Address</label>
-                <input type="email" id="newEmail" required>
+                <input type="email" id="newEmail" required placeholder="staff@example.com">
+                
                 <label>Assign Role</label>
-                <select id="roleDropdown" required></select>
+                <select id="roleDropdown" required>
+                    <option value="">Loading roles...</option>
+                </select>
+                
                 <div style="display:flex; justify-content: flex-end; gap: 10px;">
-                    <button type="button" onclick="closeModal()">Cancel</button>
+                    <button type="button" onclick="closeModal()" style="background:none; border:1px solid #ccc; padding:8px 12px; border-radius:4px; cursor:pointer;">Cancel</button>
                     <button type="submit" style="background:#28a745; color:white; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;">Confirm Add</button>
                 </div>
             </form>
@@ -47,8 +63,9 @@
     </div>
 
     <div id="sidebar">
-        <h3>Prototype Menu</h3>
-        <p style="font-weight: bold;">My Businesses</p>
+        <h3>Menu</h3>
+        <p style="font-weight: bold; color: #007bff;">My Businesses</p>
+        <p>User Settings</p>
         <hr>
         <div class="user-info">
             Logged in as: <br><span id="display-name" style="color:black; font-weight:bold;">...</span><br>
@@ -58,12 +75,14 @@
 
     <div id="main-content">
         <h1>My Businesses</h1>
-        <div id="business-list">Loading your businesses and products...</div>
+        <p>Manage your merchant IDs, products, and staff members.</p>
+        <div id="business-list">Loading your businesses...</div>
     </div>
 
     <script>
+        // --- CONFIGURATION ---
         const SUPABASE_URL = 'https://tsgpgauyimwlechpedpk.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzZ3BnYXV5aW13bGVjaHBlZHBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzODE1NjIsImV4cCI6MjA5MDk1NzU2Mn0.jFhmn2gxhDr9MuHg_TyCJPnnsyNbdDN56HAZn3Ydbyg'; // <--- REPLACE WITH YOUR KEY
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzZ3BnYXV5aW13bGVjaHBlZHBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzODE1NjIsImV4cCI6MjA5MDk1NzU2Mn0.jFhmn2gxhDr9MuHg_TyCJPnnsyNbdDN56HAZn3Ydbyg'; // <--- PASTE YOUR KEY HERE
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         window.onload = async function() {
@@ -78,7 +97,7 @@
 
             document.getElementById('display-name').textContent = userName;
 
-            // 1. Fetch permissions AND product_name
+            // 1. Fetch all permission rows for the user
             const { data: permissions, error } = await sb
                 .from('user_permissions')
                 .select('mid_number, role_name, product_name')
@@ -88,48 +107,85 @@
 
             if (error) {
                 listDiv.innerHTML = "Error: " + error.message;
-            } else if (!permissions || permissions.length === 0) {
-                listDiv.innerHTML = `No businesses found for <strong>${userEmail}</strong>.`;
-            } else {
-                listDiv.innerHTML = ""; 
-                
-                for (const p of permissions) {
-                    // Fetch Business Name from Logic Table
-                    const { data: bizData } = await sb
-                        .from('mid_role_logic')
-                        .select('business_name')
-                        .eq('mid_number', p.mid_number)
-                        .limit(1)
-                        .maybeSingle();
+                return;
+            }
 
-                    const bName = bizData ? bizData.business_name : ("MID: " + p.mid_number);
+            if (!permissions || permissions.length === 0) {
+                listDiv.innerHTML = `No businesses assigned to <strong>${userEmail}</strong>.`;
+                return;
+            }
 
-                    // Check Role Permission
-                    const canAddUser = (p.role_name === 'Principal' || p.role_name === 'Business Manager');
-                    
-                    const card = document.createElement('div');
-                    card.className = 'card';
-                    card.innerHTML = `
-                        <div class="business-info">
-                            <strong>${bName}</strong><br>
-                            <div class="product-tag">${p.product_name || 'Generic Product'}</div><br>
-                            <small style="color:#888;">MID: ${p.mid_number}</small><br>
-                            <span class="badge">Your Role: ${p.role_name}</span>
-                        </div>
-                        ${canAddUser 
-                            ? `<button class="btn-add" onclick="openAddUserModal('${p.mid_number}', '${bName}')">+ Add Staff</button>` 
-                            : `<span style="color:gray; font-size:0.8em;">View Only</span>`}
-                    `;
-                    listDiv.appendChild(card);
+            // 2. GROUPING LOGIC: Group multiple products/roles under one MID
+            const groupedMids = {};
+            permissions.forEach(p => {
+                if (!groupedMids[p.mid_number]) {
+                    groupedMids[p.mid_number] = {
+                        mid: p.mid_number,
+                        details: []
+                    };
                 }
+                groupedMids[p.mid_number].details.push({
+                    product: p.product_name,
+                    role: p.role_name
+                });
+            });
+
+            listDiv.innerHTML = ""; 
+
+            // 3. RENDER CARDS
+            for (const midKey in groupedMids) {
+                const midGroup = groupedMids[midKey];
+
+                // Fetch Business Name from mid_role_logic
+                const { data: bizData } = await sb
+                    .from('mid_role_logic')
+                    .select('business_name')
+                    .eq('mid_number', midGroup.mid)
+                    .limit(1)
+                    .maybeSingle();
+
+                const bName = bizData ? bizData.business_name : ("MID: " + midGroup.mid);
+
+                // Permission Check: If user is Principal/Business Manager on ANY product in this MID
+                const canAddUser = midGroup.details.some(d => 
+                    d.role === 'Principal' || d.role === 'Business Manager'
+                );
+
+                // Create the product list HTML
+                const detailsHtml = midGroup.details.map(d => `
+                    <div class="product-row">
+                        <span class="product-tag">${d.product}</span>
+                        <span class="badge">${d.role}</span>
+                    </div>
+                `).join('');
+
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="business-info">
+                        <h3 style="margin: 0 0 10px 0; color: #333;">${bName}</h3>
+                        <div class="details-container">
+                            ${detailsHtml}
+                        </div>
+                        <small style="color:#888; display:block; margin-top:12px;">MID: ${midGroup.mid}</small>
+                    </div>
+                    <div>
+                        ${canAddUser 
+                            ? `<button class="btn-add" onclick="openAddUserModal('${midGroup.mid}', '${bName}')">+ Add Staff</button>` 
+                            : `<span style="color:gray; font-size:0.8em; font-style:italic;">Read-Only Access</span>`}
+                    </div>
+                `;
+                listDiv.appendChild(card);
             }
         };
 
-        // Modal Logic
+        // --- MODAL & FORM LOGIC ---
+
         async function openAddUserModal(mid, businessName) {
             document.getElementById('targetMid').value = mid;
             document.getElementById('targetBusinessName').innerText = businessName;
             
+            // Fetch roles allowed for this MID from mid_role_logic (Excluding Principal)
             const { data: roles } = await sb
                 .from('mid_role_logic')
                 .select('role_name')
@@ -157,9 +213,14 @@
             const role = document.getElementById('roleDropdown').value;
             const email = document.getElementById('newEmail').value.toLowerCase().trim();
 
-            await sb.from('profiles').upsert({ email, first_name: firstName, last_name: lastName }, { onConflict: 'email' });
-            
-            // We use 'SMB' as a default product for new invites in this prototype
+            // STEP A: Upsert Profile
+            await sb.from('profiles').upsert({ 
+                email: email, 
+                first_name: firstName, 
+                last_name: lastName 
+            }, { onConflict: 'email' });
+
+            // STEP B: Insert Permission (Default product 'SMB' for this prototype)
             const { error } = await sb.from('user_permissions').insert([{ 
                 user_email: email, 
                 mid_number: mid, 
@@ -168,7 +229,7 @@
             }]);
 
             if (!error) { 
-                alert('Success! User added.'); 
+                alert('User added successfully!'); 
                 closeModal(); 
             } else { 
                 alert('Error: ' + error.message); 

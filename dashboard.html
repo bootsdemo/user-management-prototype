@@ -11,31 +11,34 @@
         #main-content { flex-grow: 1; padding: 40px; }
         
         /* Dashboard Cards */
-        .card { border: 1px solid #ddd; padding: 20px; border-radius: 12px; margin-bottom: 20px; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: transform 0.2s; }
-        .card:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
-        .card-header { border-bottom: 1px solid #eee; padding-bottom: 12px; margin-bottom: 12px; }
-        .dba-name { font-size: 1.2em; font-weight: bold; color: #333; display: block; }
-        .mid-label { font-size: 0.85em; color: #666; font-family: monospace; background: #f1f1f1; padding: 2px 6px; border-radius: 4px; }
+        .card { border: 1px solid #ddd; padding: 20px; border-radius: 12px; margin-bottom: 20px; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .card-header { border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 12px; }
+        .dba-name { font-size: 1.1em; font-weight: bold; color: #333; }
+        .mid-label { font-size: 0.8em; color: #777; font-family: monospace; margin-left: 10px; background: #f1f1f1; padding: 2px 5px; border-radius: 4px; }
         
-        .product-info { font-size: 0.9em; color: #444; display: flex; align-items: center; gap: 10px; }
-        .product-tag { background: #e7f3ff; color: #007bff; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
-        .role-badge { background: #e6fffa; color: #047481; padding: 2px 8px; border-radius: 4px; border: 1px solid #b2f5ea; }
+        .product-tag { background: #e7f3ff; color: #007bff; padding: 3px 10px; border-radius: 4px; font-weight: bold; font-size: 0.85em; }
+        .role-badge { background: #e6fffa; color: #047481; padding: 3px 10px; border-radius: 4px; border: 1px solid #b2f5ea; font-size: 0.85em; margin-left: 8px; }
 
-        /* Buttons & Controls */
+        /* Experiment Bar */
         .experiment-bar { display: flex; gap: 15px; margin-bottom: 30px; padding: 20px; background: #fff; border: 1px dashed #007bff; border-radius: 8px; }
         .btn-opt { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; color: white; }
         .btn-opt1 { background: #007bff; }
         .btn-opt2 { background: #6f42c1; }
-        .btn-logout { color: red; cursor: pointer; text-decoration: underline; font-size: 0.8em; }
 
         /* Modal */
         .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; }
-        .modal-content { background:white; width:500px; margin:50px auto; padding:25px; border-radius:12px; }
+        .modal-content { background:white; width:500px; margin:50px auto; padding:25px; border-radius:12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .modal-content label { font-size: 0.85em; font-weight: bold; display: block; margin-top: 15px; }
         .modal-content input, .modal-content select { width:100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
         .name-row { display: flex; gap: 10px; }
         .name-row div { flex: 1; }
-        .perm-box { border: 1px solid #eee; background: #fafafa; padding: 10px; border-radius: 6px; margin-top: 5px; max-height: 150px; overflow-y: auto; }
+
+        /* Permissions Box - THE UPDATED SECTION */
+        .perm-box { border: 1px solid #eee; background: #fafafa; padding: 12px; border-radius: 6px; margin-top: 5px; max-height: 200px; overflow-y: auto; }
+        .perm-item { display: flex; align-items: center; gap: 10px; font-size: 0.9em; padding: 4px 0; }
+        .perm-item input[type="checkbox"] { width: auto; margin: 0; cursor: pointer; }
+        .label-default { color: #666; font-size: 0.8em; font-style: italic; }
+        .label-optional { color: #007bff; font-size: 0.8em; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -44,10 +47,8 @@
         <h3>User Admin</h3>
         <p style="font-weight: bold; color: #007bff;">Dashboard</p>
         <hr>
-        <div class="user-info">
-            Logged in: <span id="display-name" style="font-weight:bold;">...</span><br>
-            <span class="btn-logout" onclick="logout()">Logout</span>
-        </div>
+        <div id="display-name" style="font-weight:bold; margin-bottom: 10px;">...</div>
+        <span style="color:red; cursor:pointer; font-size:0.8em;" onclick="logout()">Logout</span>
     </div>
 
     <div id="main-content">
@@ -55,16 +56,16 @@
         
         <div class="experiment-bar">
             <div style="flex:1">
-                <strong>Option 1: Business-First</strong><br>
+                <strong>Business-First</strong><br>
                 <button class="btn-opt btn-opt1" onclick="openModal('modal-opt1')" style="margin-top:10px;">Invite by Business</button>
             </div>
             <div style="flex:1">
-                <strong>Option 2: Product-First</strong><br>
+                <strong>Product-First</strong><br>
                 <button class="btn-opt btn-opt2" onclick="openModal('modal-opt2')" style="margin-top:10px;">Invite by Product</button>
             </div>
         </div>
 
-        <h3>My Business Access</h3>
+        <h3>Active Business Access</h3>
         <div id="business-list">Loading...</div>
     </div>
 
@@ -75,14 +76,18 @@
                 <div><label>First Name</label><input type="text" id="opt1-first"></div>
                 <div><label>Last Name</label><input type="text" id="opt1-last"></div>
             </div>
-            <label>Email</label><input type="email" id="opt1-email">
+            <label>Email Address</label><input type="email" id="opt1-email">
+            
             <label>1. Select Business</label><select id="opt1-mid" onchange="opt1_onMidChange()"></select>
             <label>2. Select Product</label><select id="opt1-product"></select>
             <label>3. Select Role</label><select id="opt1-role" onchange="renderPerms('opt1-role', 'perm-box-1')"></select>
-            <div id="perm-box-1" class="perm-box"></div>
+            
+            <label>Permissions (Defaults pre-selected)</label>
+            <div id="perm-box-1" class="perm-box"><small>Select a role to see permissions...</small></div>
+
             <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:10px;">
                 <button onclick="closeModals()">Cancel</button>
-                <button style="background:#28a745; color:white; border:none; padding:10px;" onclick="handleInvite('opt1')">Confirm</button>
+                <button style="background:#28a745; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer;" onclick="handleInvite('opt1')">Confirm Invite</button>
             </div>
         </div>
     </div>
@@ -94,14 +99,18 @@
                 <div><label>First Name</label><input type="text" id="opt2-first"></div>
                 <div><label>Last Name</label><input type="text" id="opt2-last"></div>
             </div>
-            <label>Email</label><input type="email" id="opt2-email">
+            <label>Email Address</label><input type="email" id="opt2-email">
+            
             <label>1. Select Product</label><select id="opt2-product" onchange="opt2_onProductChange()"></select>
             <label>2. Select Business</label><select id="opt2-mid" onchange="opt2_onMidChange()"></select>
             <label>3. Select Role</label><select id="opt2-role" onchange="renderPerms('opt2-role', 'perm-box-2')"></select>
-            <div id="perm-box-2" class="perm-box"></div>
+            
+            <label>Permissions (Defaults pre-selected)</label>
+            <div id="perm-box-2" class="perm-box"><small>Select a role to see permissions...</small></div>
+
             <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:10px;">
                 <button onclick="closeModals()">Cancel</button>
-                <button style="background:#6f42c1; color:white; border:none; padding:10px;" onclick="handleInvite('opt2')">Confirm</button>
+                <button style="background:#6f42c1; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer;" onclick="handleInvite('opt2')">Confirm Invite</button>
             </div>
         </div>
     </div>
@@ -112,9 +121,10 @@
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         const ROLE_PERMISSIONS = {
-            "Business Manager": { defaults: ["Reports", "Invite", "Refund"], optionals: ["Void"] },
-            "Facility Manager": { defaults: ["Reports", "Schedule"], optionals: ["Invite"] },
-            "Sales Associate": { defaults: ["Create Sale"], optionals: ["Refund"] }
+            "Business Manager": { defaults: ["View Reports", "Invite User", "Refunds"], optionals: ["Void Transactions", "Export Data"] },
+            "Facility Manager": { defaults: ["View Reports", "Manage Schedule"], optionals: ["Invite User"] },
+            "Sales Associate": { defaults: ["Create Sale", "View Catalog"], optionals: ["Refunds"] },
+            "Kitchen Lead": { defaults: ["View Orders", "Update Menu"], optionals: ["Inventory Management"] }
         };
 
         let userMids = [];
@@ -124,44 +134,34 @@
             if (!email) { window.location.href = 'index.html'; return; }
             document.getElementById('display-name').textContent = localStorage.getItem('currentUserName');
 
-            // Fetch current user's MIDs
             const { data } = await sb.from('user_permissions').select('*').eq('user_email', email.toLowerCase());
             userMids = data || [];
             
-            // Enrich userMids with DBA names from mid_role_logic
             for (let item of userMids) {
                 const { data: biz } = await sb.from('mid_role_logic').select('business_name').eq('mid_number', item.mid_number).limit(1).maybeSingle();
                 item.dba = biz ? biz.business_name : "Unknown Business";
             }
-
             renderDashboard();
             populateInitialDropdowns();
         };
 
         function renderDashboard() {
-            const listDiv = document.getElementById('business-list');
-            listDiv.innerHTML = userMids.map(m => `
+            document.getElementById('business-list').innerHTML = userMids.map(m => `
                 <div class="card">
-                    <div class="card-header">
-                        <span class="dba-name">${m.dba}</span>
-                        <span class="mid-label">MID: ${m.mid_number}</span>
-                    </div>
-                    <div class="product-info">
-                        <span class="product-tag">${m.product_name}</span>
-                        <span class="role-badge">${m.role_name}</span>
-                    </div>
+                    <div class="card-header"><span class="dba-name">${m.dba}</span><span class="mid-label">MID: ${m.mid_number}</span></div>
+                    <span class="product-tag">${m.product_name}</span><span class="role-badge">${m.role_name}</span>
                 </div>`).join('');
         }
 
         async function populateInitialDropdowns() {
             const opt1Mid = document.getElementById('opt1-mid');
-            opt1Mid.innerHTML = '<option value="">-- Choose Business --</option>';
+            opt1Mid.innerHTML = '<option value="">-- Select Business --</option>';
             const uniqueMids = [...new Map(userMids.map(item => [item.mid_number, item])).values()];
             uniqueMids.forEach(m => opt1Mid.innerHTML += `<option value="${m.mid_number}">${m.dba} (${m.mid_number})</option>`);
 
             const opt2Prod = document.getElementById('opt2-product');
             const uniqueProds = [...new Set(userMids.map(m => m.product_name))];
-            opt2Prod.innerHTML = '<option value="">-- Choose Product --</option>' + uniqueProds.map(p => `<option>${p}</option>`).join('');
+            opt2Prod.innerHTML = '<option value="">-- Select Product --</option>' + uniqueProds.map(p => `<option>${p}</option>`).join('');
         }
 
         async function opt1_onMidChange() {
@@ -169,51 +169,67 @@
             const { data: prods } = await sb.from('mid_product_logic').select('product_name').eq('mid_number', mid);
             document.getElementById('opt1-product').innerHTML = prods.map(p => `<option>${p.product_name}</option>`).join('');
             const { data: roles } = await sb.from('mid_role_logic').select('role_name').eq('mid_number', mid).neq('role_name', 'Principal');
-            document.getElementById('opt1-role').innerHTML = '<option value="">-- Role --</option>' + [...new Set(roles.map(r => r.role_name))].map(r => `<option>${r}</option>`).join('');
+            document.getElementById('opt1-role').innerHTML = '<option value="">-- Select Role --</option>' + [...new Set(roles.map(r => r.role_name))].map(r => `<option>${r}</option>`).join('');
         }
 
         async function opt2_onProductChange() {
             const prod = document.getElementById('opt2-product').value;
             const { data: mids } = await sb.from('mid_product_logic').select('mid_number').eq('product_name', prod);
             const mDrop = document.getElementById('opt2-mid');
-            mDrop.innerHTML = '<option value="">-- Choose Business --</option>';
-            for (let m of mids) {
-                const userMatch = userMids.find(um => um.mid_number == m.mid_number);
-                if (userMatch) {
-                    mDrop.innerHTML += `<option value="${m.mid_number}">${userMatch.dba} (${m.mid_number})</option>`;
-                }
-            }
+            mDrop.innerHTML = '<option value="">-- Select Business --</option>';
+            mids.forEach(m => {
+                const match = userMids.find(um => um.mid_number == m.mid_number);
+                if (match) mDrop.innerHTML += `<option value="${m.mid_number}">${match.dba} (${m.mid_number})</option>`;
+            });
         }
 
         async function opt2_onMidChange() {
             const mid = document.getElementById('opt2-mid').value;
             const { data: roles } = await sb.from('mid_role_logic').select('role_name').eq('mid_number', mid).neq('role_name', 'Principal');
-            document.getElementById('opt2-role').innerHTML = '<option value="">-- Role --</option>' + [...new Set(roles.map(r => r.role_name))].map(r => `<option>${r}</option>`).join('');
+            document.getElementById('opt2-role').innerHTML = '<option value="">-- Select Role --</option>' + [...new Set(roles.map(r => r.role_name))].map(r => `<option>${r}</option>`).join('');
         }
 
-        function renderPerms(id, boxId) {
-            const role = document.getElementById(id).value;
-            const config = ROLE_PERMISSIONS[role];
+        // --- UPDATED PERMISSION RENDERER ---
+        function renderPerms(selectId, boxId) {
+            const role = document.getElementById(selectId).value;
             const box = document.getElementById(boxId);
-            if (!config) { box.innerHTML = ""; return; }
-            box.innerHTML = config.defaults.map(p => `<div><input type="checkbox" checked disabled> ${p}</div>`).join('') +
-                            config.optionals.map(p => `<div><input type="checkbox"> ${p} (Opt)</div>`).join('');
+            const config = ROLE_PERMISSIONS[role];
+            
+            if (!config) { box.innerHTML = "<small style='color:#999;'>Choose a role to view permissions...</small>"; return; }
+            
+            // Note: Default permissions are CHECKED but NOT disabled, so user can uncheck.
+            box.innerHTML = config.defaults.map(p => `
+                <div class="perm-item">
+                    <input type="checkbox" class="perm-check" value="${p}" checked> 
+                    <span>${p} <span class="label-default">(Default)</span></span>
+                </div>`).join('') +
+                config.optionals.map(p => `
+                <div class="perm-item">
+                    <input type="checkbox" class="perm-check" value="${p}"> 
+                    <span>${p} <span class="label-optional">(Optional)</span></span>
+                </div>`).join('');
         }
 
         async function handleInvite(prefix) {
-            const email = document.getElementById(`${prefix}-email`).value;
+            const email = document.getElementById(`${prefix}-email`).value.toLowerCase().trim();
             const first = document.getElementById(`${prefix}-first`).value;
             const last = document.getElementById(`${prefix}-last`).value;
             const mid = document.getElementById(`${prefix}-mid`).value;
             const role = document.getElementById(`${prefix}-role`).value;
             const prod = document.getElementById(`${prefix}-product`).value;
+            
+            // Get all checked boxes from the specific box
+            const boxId = prefix === 'opt1' ? 'perm-box-1' : 'perm-box-2';
+            const perms = Array.from(document.querySelectorAll(`#${boxId} .perm-check:checked`)).map(c => c.value).join(', ');
 
-            if(!email || !role) return alert("Fill required fields");
+            if(!email || !role || !mid) return alert("Please fill in Email, Business, and Role.");
 
             await sb.from('profiles').upsert({ email, first_name: first, last_name: last });
-            const { error } = await sb.from('user_permissions').insert([{ user_email: email, mid_number: mid, role_name: role, product_name: prod }]);
+            const { error } = await sb.from('user_permissions').insert([{ 
+                user_email: email, mid_number: mid, role_name: role, product_name: prod, active_permissions: perms 
+            }]);
             
-            if(!error) { alert("Done!"); closeModals(); } else { alert(error.message); }
+            if(!error) { alert("User Invited with Custom Permissions!"); closeModals(); } else { alert(error.message); }
         }
 
         function openModal(id) { document.getElementById(id).style.display = 'block'; }

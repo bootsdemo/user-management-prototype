@@ -31,6 +31,9 @@
         .modal-content label { font-size: 0.85em; font-weight: bold; display: block; margin-top: 15px; color: #555; }
         .modal-content select, .modal-content input { width:100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
         
+        .name-row { display: flex; gap: 10px; }
+        .name-row div { flex: 1; }
+
         /* Permissions Box */
         .perm-box { border: 1px solid #eee; background: #fafafa; padding: 10px; border-radius: 6px; margin-top: 5px; max-height: 150px; overflow-y: auto; }
         .perm-item { display: flex; align-items: center; gap: 8px; font-size: 0.85em; margin-bottom: 5px; }
@@ -73,6 +76,18 @@
     <div id="modal-opt1" class="modal">
         <div class="modal-content">
             <h3>Invite: Business-First Flow</h3>
+            
+            <div class="name-row">
+                <div>
+                    <label>First Name</label>
+                    <input type="text" id="opt1-first" placeholder="Jane">
+                </div>
+                <div>
+                    <label>Last Name</label>
+                    <input type="text" id="opt1-last" placeholder="Doe">
+                </div>
+            </div>
+
             <label>User Email</label>
             <input type="email" id="opt1-email" placeholder="staff@example.com">
             
@@ -82,7 +97,7 @@
             <label>2. Select Product</label>
             <select id="opt1-product"><option value="">-- Select Business First --</option></select>
 
-            <label>3. Select Role (Excludes Principal)</label>
+            <label>3. Select Role</label>
             <select id="opt1-role" onchange="renderPerms('opt1-role', 'perm-box-1')"><option value="">-- Select Role --</option></select>
 
             <label>Permissions Adjustment</label>
@@ -98,6 +113,18 @@
     <div id="modal-opt2" class="modal">
         <div class="modal-content">
             <h3>Invite: Product-First Flow</h3>
+
+            <div class="name-row">
+                <div>
+                    <label>First Name</label>
+                    <input type="text" id="opt2-first" placeholder="John">
+                </div>
+                <div>
+                    <label>Last Name</label>
+                    <input type="text" id="opt2-last" placeholder="Smith">
+                </div>
+            </div>
+
             <label>User Email</label>
             <input type="email" id="opt2-email" placeholder="staff@example.com">
 
@@ -107,7 +134,7 @@
             <label>2. Select Business (MID)</label>
             <select id="opt2-mid" onchange="opt2_onMidChange()"><option value="">-- Select Product First --</option></select>
 
-            <label>3. Select Role (Excludes Principal)</label>
+            <label>3. Select Role</label>
             <select id="opt2-role" onchange="renderPerms('opt2-role', 'perm-box-2')"><option value="">-- Select Role --</option></select>
 
             <label>Permissions Adjustment</label>
@@ -155,7 +182,6 @@
         }
 
         async function populateInitialDropdowns() {
-            // Populate Business-First
             const opt1Mid = document.getElementById('opt1-mid');
             const uniqueMids = [...new Set(userMids.map(m => m.mid_number))];
             for (let mid of uniqueMids) {
@@ -163,24 +189,19 @@
                 opt1Mid.innerHTML += `<option value="${mid}">${data ? data.business_name : mid}</option>`;
             }
 
-            // Populate Product-First
             const opt2Prod = document.getElementById('opt2-product');
             const uniqueProds = [...new Set(userMids.map(m => m.product_name))];
             uniqueProds.forEach(p => opt2Prod.innerHTML += `<option value="${p}">${p}</option>`);
         }
 
-        // --- OPTION 1 LOGIC ---
         async function opt1_onMidChange() {
             const mid = document.getElementById('opt1-mid').value;
             const { data: prods } = await sb.from('mid_product_logic').select('product_name').eq('mid_number', mid);
             document.getElementById('opt1-product').innerHTML = prods.map(p => `<option>${p.product_name}</option>`).join('');
-            
-            // SECURITY: Explicitly filter out 'Principal' from the dropdown
             const { data: roles } = await sb.from('mid_role_logic').select('role_name').eq('mid_number', mid).neq('role_name', 'Principal');
             document.getElementById('opt1-role').innerHTML = '<option value="">-- Choose Role --</option>' + [...new Set(roles.map(r => r.role_name))].map(r => `<option>${r}</option>`).join('');
         }
 
-        // --- OPTION 2 LOGIC ---
         async function opt2_onProductChange() {
             const prod = document.getElementById('opt2-product').value;
             const { data: mids } = await sb.from('mid_product_logic').select('mid_number').eq('product_name', prod);
@@ -196,7 +217,6 @@
 
         async function opt2_onMidChange() {
             const mid = document.getElementById('opt2-mid').value;
-            // SECURITY: Explicitly filter out 'Principal' from the dropdown
             const { data: roles } = await sb.from('mid_role_logic').select('role_name').eq('mid_number', mid).neq('role_name', 'Principal');
             document.getElementById('opt2-role').innerHTML = '<option value="">-- Choose Role --</option>' + [...new Set(roles.map(r => r.role_name))].map(r => `<option>${r}</option>`).join('');
         }
@@ -206,29 +226,34 @@
             const box = document.getElementById(boxId);
             const config = ROLE_PERMISSIONS[role];
             if (!config) { box.innerHTML = "<small>No custom permissions.</small>"; return; }
-            
             box.innerHTML = config.defaults.map(p => `<div class="perm-item"><input type="checkbox" checked class="p-check" value="${p}"> ${p} <span class="perm-label-default">(Default)</span></div>`).join('') +
                             config.optionals.map(p => `<div class="perm-item"><input type="checkbox" class="p-check" value="${p}"> ${p} <span class="perm-label-optional">(Optional)</span></div>`).join('');
         }
 
         async function handleInvite(prefix) {
-            const email = document.getElementById(`${prefix}-email`).value;
+            const first = document.getElementById(`${prefix}-first`).value;
+            const last = document.getElementById(`${prefix}-last`).value;
+            const email = document.getElementById(`${prefix}-email`).value.toLowerCase().trim();
             const mid = document.getElementById(`${prefix}-mid`).value;
             const role = document.getElementById(`${prefix}-role`).value;
             const prod = document.getElementById(`${prefix}-product`).value;
             const perms = Array.from(document.querySelectorAll(`#perm-box-${prefix === 'opt1' ? '1' : '2'} .p-check:checked`)).map(c => c.value).join(', ');
 
-            if(!email || !role) { alert("Please fill all fields"); return; }
+            if(!email || !role || !first || !last) { alert("Please fill all fields (Name, Email, Role)"); return; }
 
+            // 1. Update Profile (Name)
+            await sb.from('profiles').upsert({ email, first_name: first, last_name: last }, { onConflict: 'email' });
+
+            // 2. Insert Permissions
             const { error } = await sb.from('user_permissions').insert([{ 
-                user_email: email.toLowerCase().trim(), 
+                user_email: email, 
                 mid_number: mid, 
                 role_name: role, 
                 product_name: prod,
                 active_permissions: perms 
             }]);
 
-            if(!error) { alert("Invite Sent!"); closeModals(); } else { alert(error.message); }
+            if(!error) { alert("Invite Sent Successfully!"); closeModals(); } else { alert(error.message); }
         }
 
         function openModal(id) { document.getElementById(id).style.display = 'block'; }

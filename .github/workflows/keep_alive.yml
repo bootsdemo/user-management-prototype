@@ -22,7 +22,7 @@ jobs:
           
           echo "Pinging Supabase..."
           STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X GET "$SUPABASE_URL/rest/v1/roles?select=id&limit=1" \
+            -X GET "$SUPABASE_URL/rest/v1/profiles?select=id&limit=1" \
             -H "apikey: $SUPABASE_KEY" \
             -H "Authorization: Bearer $SUPABASE_KEY")
           
